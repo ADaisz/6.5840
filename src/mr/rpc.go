@@ -6,8 +6,10 @@ package mr
 // remember to capitalize all names.
 //
 
-import "os"
-import "strconv"
+import (
+	"os"
+	"strconv"
+)
 
 //
 // example to show how to declare the arguments
@@ -23,7 +25,19 @@ type ExampleReply struct {
 }
 
 // Add your RPC definitions here.
+type RequestTaskArgs struct {
+}
 
+type RequestTaskReply struct {
+	Task Task
+}
+
+type TaskDoneArgs struct {
+	ID int
+}
+
+type TaskDoneReply struct {
+}
 
 // Cook up a unique-ish UNIX-domain socket name
 // in /var/tmp, for the coordinator.
@@ -31,6 +45,6 @@ type ExampleReply struct {
 // Athena AFS doesn't support UNIX-domain sockets.
 func coordinatorSock() string {
 	s := "/var/tmp/5840-mr-"
-	s += strconv.Itoa(os.Getuid())
+	s += strconv.Itoa(os.Getuid()) //strconv.Itoa: 将整型转换为字符串
 	return s
 }
