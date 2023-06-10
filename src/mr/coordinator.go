@@ -83,8 +83,6 @@ func (c *Coordinator) server() {
 // main/mrcoordinator.go calls Done() periodically to find out
 // if the entire job has finished.
 func (c *Coordinator) Done() bool {
-	// ret := false
-	// Your code here.
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	ret := c.state == QUIT
@@ -126,15 +124,12 @@ func MakeCoordinator(files []string, nReduce int) *Coordinator {
 
 func (c *Coordinator) detector() {
 	for {
-		c.mu.Lock()
 		DPrintln("current task number ", len(c.taskMap))
 		if len(c.taskMap) == 0 {
 			c.changeState()
 		} else {
 			c.taskTimeout()
 		}
-		c.mu.Unlock()
-
 		time.Sleep(100 * time.Millisecond)
 	}
 }
@@ -194,7 +189,7 @@ func (c *Coordinator) RequestTask(args *RequestTaskArgs, reply *RequestTaskReply
 }
 
 func (c *Coordinator) TaskDone(args *TaskDoneArgs, reply *TaskDoneReply) error {
-	c.mu.Lock()
+	c.mu.Lock() // map parallelism test fail
 	defer c.mu.Unlock()
 	DPrintln("delete task ", args.ID)
 	delete(c.taskMap, args.ID)
