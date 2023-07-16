@@ -13,7 +13,6 @@ func (rf *Raft) pastElectionTimeout() bool {
 	defer rf.mu.Unlock()
 	f := time.Since(rf.lastElection) > rf.electionTimeout
 	return f
-
 }
 
 // StartElection 中已经加锁了
@@ -21,7 +20,7 @@ func (rf *Raft) resetElectionTimer() {
 	electionTimeout := baseElectionTimeout + (rand.Int63() % baseElectionTimeout)
 	rf.electionTimeout = time.Duration(electionTimeout) * time.Millisecond
 	rf.lastElection = time.Now()
-	DPrintf("[server%d] :选举的超时时间设置为: %d", rf.me, rf.electionTimeout)
+	// DPrintf("[server%d] :选举的超时时间设置为: %d", rf.me, rf.electionTimeout)
 }
 
 // StartElection 中已经加锁了
@@ -29,15 +28,7 @@ func (rf *Raft) becomeCandidate() {
 	rf.state = Candidate
 	rf.currentTerm++
 	rf.votedFor = rf.me
-	DPrintf("[server%d] : start election , item = %d,state =  %d", rf.me, rf.currentTerm, rf.state)
-}
-
-func (rf *Raft) ToFollower() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-
-	rf.state = Follower
-	rf.votedFor = -1
+	// DPrintf("[server%d] : start election , item = %d,state =  %d", rf.me, rf.currentTerm, rf.state)
 }
 
 func (rf *Raft) StartElection() {
@@ -60,12 +51,10 @@ func (rf *Raft) StartElection() {
 			var reply RequestVoteReply
 			// DPrintf("term [server%d],[server%d] send vote request to [server%d]", rf.currentTerm, rf.me, serverId)
 			ok := rf.sendRequestVote(serverId, &args, &reply)
-
-			// 丢弃无效票
 			if !ok || !reply.VoteGranted {
 				return
 			}
-
+			// 丢弃无效票
 			rf.mu.Lock()
 			defer rf.mu.Unlock()
 			if rf.currentTerm > reply.Term {
@@ -83,11 +72,8 @@ func (rf *Raft) StartElection() {
 			if rf.state != Candidate || rf.currentTerm != term {
 				return
 			}
-
 			rf.state = Leader
-			// 发送心跳
-
-			go rf.StartAppendEntries(true)
+			//转至 ticker 中的 StartAppendEntries() -> 发送心跳
 		}(i)
 	}
 }

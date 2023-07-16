@@ -64,13 +64,13 @@ type Raft struct {
 	// Your data here (2A, 2B, 2C).
 	// Look at the paper's Figure 2 for a description of what
 	// state a Raft server must maintain.
-	state            int // 节点状态
-	currentTerm      int
-	votedFor         int
-	heartbeatTimeout time.Duration
-	electionTimeout  time.Duration
-	lastElection     time.Time
-	lastHeartbeat    time.Time
+	state            int           // 节点状态
+	currentTerm      int           // 当前任期
+	votedFor         int           // 投票给谁
+	heartbeatTimeout time.Duration // 心跳计时器
+	electionTimeout  time.Duration // 选举计时器
+	lastHeartbeat    time.Time     // 上一次心跳的时间
+	lastElection     time.Time     // 上一次选举的时间
 }
 
 // return currentTerm and whether this server
@@ -134,89 +134,6 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 
 }
 
-// example RequestVote RPC arguments structure.
-// field names must start with capital letters!
-type RequestVoteArgs struct {
-	// Your data here (2A, 2B).
-	Term        int
-	CandidateId int
-}
-
-// example RequestVote RPC reply structure.
-// field names must start with capital letters!
-type RequestVoteReply struct {
-	// Your data here (2A).
-	Term        int
-	VoteGranted bool
-}
-
-type RequestAppendEntriesArgs struct {
-	LeaderTerm int
-	LeaderId   int
-}
-
-type RequestAppendEntriesReply struct {
-	FollowerTerm int
-	Success      bool
-}
-
-// this function as Follower or candidate reply leader
-func (rf *Raft) RequestAppendEntries(args *RequestAppendEntriesArgs, reply *RequestAppendEntriesReply) {
-	DPrintf("receive heartbeat from [leader%d] and gonna get lock...", args.LeaderId)
-	rf.mu.Lock()
-	reply.Success = true
-	DPrintf("[server%d] receive heartbeat from [leader%d] at term %d,and my term is %d", rf.me, args.LeaderId, args.LeaderTerm, rf.currentTerm)
-	if args.LeaderTerm < rf.currentTerm {
-		reply.FollowerTerm = rf.currentTerm
-		reply.Success = false
-		rf.mu.Unlock()
-		return
-	}
-	rf.mu.Unlock()
-
-	rf.mu.Lock()
-	rf.resetElectionTimer()
-	rf.state = Follower
-	if args.LeaderTerm > rf.currentTerm {
-		rf.votedFor = -1
-		rf.currentTerm = args.LeaderTerm
-		reply.FollowerTerm = rf.currentTerm
-	}
-	rf.mu.Unlock()
-	// DPrintf("[server%d]election timeout reset, and its state converts to: %d", rf.me, rf.state)
-}
-
-func (rf *Raft) sendRequestAppendEntries(serverId int, args *RequestAppendEntriesArgs, reply *RequestAppendEntriesReply) bool {
-	ok := rf.peers[serverId].Call("Raft.RequestAppendEntries", args, reply)
-	return ok
-}
-
-func (rf *Raft) AppendEntries(serverId int, heart bool, args *RequestAppendEntriesArgs) {
-	reply := RequestAppendEntriesReply{}
-	// DPrintf("[leader%d] is ready to send heartbeat to [server%d]", rf.me, serverId)
-	if heart {
-		rf.sendRequestAppendEntries(serverId, args, &reply)
-	}
-}
-
-func (rf *Raft) StartAppendEntries(heart bool) {
-	// DPrintf("[server%d] change to [leader%d],state = %d, start send message", rf.me, rf.me, rf.state)
-	args := RequestAppendEntriesArgs{}
-
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-	rf.resetElectionTimer()
-	args.LeaderTerm = rf.currentTerm
-	args.LeaderId = rf.me
-	for i, _ := range rf.peers {
-		if i == rf.me {
-			continue
-		}
-		//TODO: 视频5中有讲此语法
-		go rf.AppendEntries(i, heart, &args)
-	}
-}
-
 // the service using Raft (e.g. a k/v server) wants to start
 // agreement on the next command to be appended to Raft's log. if this
 // server isn't the leader, returns false. otherwise start the
@@ -258,7 +175,7 @@ func (rf *Raft) killed() bool {
 	return z == 1
 }
 
-func (rf *Raft) pastheartbeatTimeout() bool {
+func (rf *Raft) pastHeartbeatTimeout() bool {
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	return time.Since(rf.lastHeartbeat) > rf.heartbeatTimeout
@@ -287,7 +204,7 @@ func (rf *Raft) ticker() {
 			}
 		case Leader:
 			isHeartbeat := false
-			if rf.pastheartbeatTimeout() {
+			if rf.pastHeartbeatTimeout() {
 				isHeartbeat = true
 				rf.resetHeartbeatTimer()
 			}
